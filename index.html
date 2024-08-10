@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Exercise Tracker</title>
+    <link rel="manifest" href="/exercise-tracker-pwa/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Exercise Tracker">
+    <link rel="apple-touch-icon" href="/exercise-tracker-pwa/icon-192x192.png">
+	
+	
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+                :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --background-color: #ecf0f1;
+            --text-color: #34495e;
+            --card-background: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            text-align: center;
+            color: var(--primary-color);
+        }
+        form, .card {
+            background-color: var(--card-background);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        form div {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #exerciseList {
+            list-style-type: none;
+            padding: 0;
+        }
+        #exerciseList li {
+            background-color: var(--card-background);
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .exerciseInfo {
+            margin-bottom: 10px;
+        }
+        .exerciseActions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .exerciseActions button {
+            padding: 5px 10px;
+            font-size: 0.9em;
+        }
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .btn-edit { background-color: #f39c12; }
+        .btn-delete { background-color: #e74c3c; }
+        .btn-check { background-color: var(--secondary-color); }
+        #chartContainer {
+            margin-top: 30px;
+        }
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            form, .card {
+                padding: 15px;
+            }
+            .exerciseActions {
+                flex-direction: column;
+            }
+            .exerciseActions button {
+                width: 100%;
+            }
+        }
+        @media (display-mode: standalone) {
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+    </style>
+</head>
+<body>
+   <div class="container">
+        <h1>Exercise Tracker</h1>
+        <form id="exerciseForm">
+            <input type="hidden" id="editIndex" value="">
+            <div>
+                <label for="exerciseName">Exercise Name</label>
+                <input type="text" id="exerciseName" required>
+            </div>
+            <div>
+                <label for="weight">Weight (kg)</label>
+                <input type="number" id="weight" step="0.1" required>
+            </div>
+            <div>
+                <label for="sets">Sets</label>
+                <input type="number" id="sets" required>
+            </div>
+            <div>
+                <label for="reps">Reps</label>
+                <input type="number" id="reps" required>
+            </div>
+            <button type="submit" id="submitBtn">Add Exercise</button>
+        </form>
+        <ul id="exerciseList"></ul>
+        <div class="card">
+            <h2>Weight History</h2>
+            <div>
+                <label for="exerciseSelect">Select Exercise:</label>
+                <select id="exerciseSelect"></select>
+            </div>
+            <div id="chartContainer">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    
+    <script>
+        const exerciseForm = document.getElementById('exerciseForm');
+        const exerciseList = document.getElementById('exerciseList');
+        const submitBtn = document.getElementById('submitBtn');
+        const exerciseSelect = document.getElementById('exerciseSelect');
+        let exercises = JSON.parse(localStorage.getItem('exercises')) || [];
+        let completedExercises = new Set();
+
+        let chart;
+
+        function displayExercises() {
+            exerciseList.innerHTML = '';
+            exerciseSelect.innerHTML = '<option value="">Select an exercise</option>';
+            exercises.forEach((exercise, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="exerciseInfo ${completedExercises.has(index) ? 'completed' : ''}">
+                        <strong>${exercise.name}</strong> - ${exercise.weight}kg, ${exercise.sets} sets, ${exercise.reps} reps
+                    </div>
+                    <div class="exerciseActions">
+                        <button class="btn-edit" onclick="editExercise(${index})">Edit</button>
+                        <button class="btn-delete" onclick="deleteExercise(${index})">Delete</button>
+                        <button class="btn-check" onclick="toggleCompletion(${index})">${completedExercises.has(index) ? 'Uncheck' : 'Check'}</button>
+                    </div>
+                `;
+                exerciseList.appendChild(li);
+
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = exercise.name;
+                exerciseSelect.appendChild(option);
+            });
+        }
+
+        function addOrUpdateExercise(event) {
+            event.preventDefault();
+            const exercise = {
+                name: document.getElementById('exerciseName').value,
+                weight: parseFloat(document.getElementById('weight').value),
+                sets: parseInt(document.getElementById('sets').value),
+                reps: parseInt(document.getElementById('reps').value),
+                date: new Date().toISOString()
+            };
+            const editIndex = document.getElementById('editIndex').value;
+            if (editIndex !== '') {
+                exercises[editIndex].history = exercises[editIndex].history || [];
+                exercises[editIndex].history.push({
+                    weight: exercise.weight,
+                    date: exercise.date
+                });
+                exercises[editIndex] = {...exercises[editIndex], ...exercise};
+                document.getElementById('editIndex').value = '';
+                submitBtn.textContent = 'Add Exercise';
+            } else {
+                exercise.history = [{weight: exercise.weight, date: exercise.date}];
+                exercises.push(exercise);
+            }
+            localStorage.setItem('exercises', JSON.stringify(exercises));
+            displayExercises();
+            exerciseForm.reset();
+            updateChart();
+        }
+
+        function editExercise(index) {
+            const exercise = exercises[index];
+            document.getElementById('exerciseName').value = exercise.name;
+            document.getElementById('weight').value = exercise.weight;
+            document.getElementById('sets').value = exercise.sets;
+            document.getElementById('reps').value = exercise.reps;
+            document.getElementById('editIndex').value = index;
+            submitBtn.textContent = 'Update Exercise';
+        }
+
+        function deleteExercise(index) {
+            exercises.splice(index, 1);
+            localStorage.setItem('exercises', JSON.stringify(exercises));
+            completedExercises.delete(index);
+            displayExercises();
+            updateChart();
+        }
+
+        function toggleCompletion(index) {
+            if (completedExercises.has(index)) {
+                completedExercises.delete(index);
+            } else {
+                completedExercises.add(index);
+            }
+            displayExercises();
+        }
+
+        function updateChart() {
+            const selectedExercise = exercises[exerciseSelect.value];
+            if (selectedExercise && selectedExercise.history) {
+                const labels = selectedExercise.history.map(entry => new Date(entry.date).toLocaleDateString());
+                const data = selectedExercise.history.map(entry => entry.weight);
+
+                if (chart) {
+                    chart.destroy();
+                }
+
+                chart = new Chart(document.getElementById('weightChart'), {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Weight (kg)',
+                            data: data,
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Weight (kg)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        exerciseForm.addEventListener('submit', addOrUpdateExercise);
+        exerciseSelect.addEventListener('change', updateChart);
+        displayExercises();
+        updateChart();
+
+        // Add these functions for export/import
+        function exportData() {
+            const data = JSON.stringify(exercises);
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'exercise-tracker-data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    exercises = importedData;
+                    localStorage.setItem('exercises', JSON.stringify(exercises));
+                    displayExercises();
+                    updateChart();
+                    alert('Data imported successfully!');
+                } catch (error) {
+                    alert('Error importing data. Please make sure you selected the correct file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
