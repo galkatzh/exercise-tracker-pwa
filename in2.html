@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercise Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 50vh;
+            width: 100%;
+        }
+        .feedback {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .feedback.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .feedback.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .flash {
+            animation: flash 0.5s;
+        }
+
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #4CAF50;
+        }
+
+        .input-group button:active {
+            transform: scale(0.98);
+        }
+        #comparisonChart {
+            max-height: 100%;
+            max-width: 100%;
+        }
+        .scrollable-table {
+            max-height: 40vh;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        #sessionLog {
+            margin-top: 20px;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 100%;
+            padding: 10px;
+        }
+        .card {
+            background: #ffffff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .input-group input,
+        .input-group select,
+        .input-group button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .input-group button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .input-group button:hover {
+            background-color: #45a049;
+        }
+        #timer {
+            font-size: 2.5em;
+            text-align: center;
+            margin: 15px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+        }
+        .tab-container {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #ddd;
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .exercise-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .exercise-item {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .exercise-item button {
+            margin-top: 5px;
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .exercise-item button.delete {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Exercise Tracker</h1>
+        
+        <div class="tab-container">
+            <div class="tab active" onclick="showTab('goals')">Goals</div>
+            <div class="tab" onclick="showTab('session')">Session</div>
+            <div class="tab" onclick="showTab('timer')">Timer</div>
+            <div class="tab" onclick="showTab('history')">History</div>
+        </div>
+
+        <div id="goals" class="tab-content active">
+            <div class="card">
+                <h2>Set Exercise Goal</h2>
+                <div class="input-group">
+                    <input type="text" id="goalExerciseName" placeholder="Exercise Name">
+                    <input type="number" id="goalWeight" placeholder="Weight (kg)">
+                    <input type="number" id="goalSets" placeholder="Sets">
+                    <input type="number" id="goalReps" placeholder="Reps">
+                    <button onclick="setGoal()">Set Goal</button>
+                </div>
+                <div id="goalFeedback" class="feedback"></div>
+            </div>
+            <div class="card">
+                <h2>Exercise Goals</h2>
+                <ul id="exerciseList" class="exercise-list">
+                    <!-- Exercise items will be added here dynamically -->
+                </ul>
+            </div>
+        </div>
+
+        <div id="session" class="tab-content">
+            <div class="card">
+                <h2>Record Session</h2>
+                <div class="input-group">
+                    <input type="date" id="sessionDate">
+                    <select id="sessionExercise" onchange="updateSessionDefaults()"></select>
+                    <input type="number" id="sessionWeight" placeholder="Weight (kg)">
+                    <input type="number" id="sessionSets" placeholder="Sets">
+                    <input type="number" id="sessionReps" placeholder="Reps">
+                    <button onclick="recordSession()">Record</button>
+                </div>
+                <div id="sessionFeedback" class="feedback"></div>
+            </div>
+            <div class="card">
+                <h2>Session Log</h2>
+                <div class="scrollable-table">
+                    <table id="sessionLog">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Exercise</th>
+                                <th>Weight</th>
+                                <th>Sets</th>
+                                <th>Reps</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Session entries will be added here dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div id="timer" class="tab-content">
+            <div class="card">
+                <h2>Rest Timer</h2>
+                <div class="input-group">
+                    <input type="number" id="timerMinutes" placeholder="Minutes" min="0" value="1">
+                    <input type="number" id="timerSeconds" placeholder="Seconds" min="0" max="59" value="0">
+                    <button onclick="startTimer()">Start Timer</button>
+                </div>
+                <div id="timer">01:00</div>
+            </div>
+        </div>
+        <div id="history" class="tab-content">
+            <div class="card">
+                <h2>Performance Comparison</h2>
+                <select id="compareExercise" onchange="updateChart()"></select>
+                <div class="chart-container">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <audio id="timerAudio">
+        <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=bell-ring-01.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script>
+        let goals = {};
+        let sessions = [];
+        let chartInstance = null;
+        let timerInterval;
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            if (tabName === 'history') {
+                updateChart();
+            }
+            if (tabName === 'session') {
+                updateSessionLog(); // Update session log when switching to session tab
+            }
+        }
+        
+
+        function updateExerciseList() {
+            const list = document.getElementById('exerciseList');
+            list.innerHTML = '';
+            Object.entries(goals).forEach(([name, goal]) => {
+                const item = document.createElement('li');
+                item.className = 'exercise-item';
+                item.innerHTML = `
+                    <strong>${name}</strong><br>
+                    Weight: ${goal.weight}kg, Sets: ${goal.sets}, Reps: ${goal.reps}<br>
+                    <button onclick="editExercise('${name}')">Edit</button>
+                    <button class="delete" onclick="deleteExercise('${name}')">Delete</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function editExercise(name) {
+            const goal = goals[name];
+            document.getElementById('goalExerciseName').value = name;
+            document.getElementById('goalWeight').value = goal.weight;
+            document.getElementById('goalSets').value = goal.sets;
+            document.getElementById('goalReps').value = goal.reps;
+        }
+        function showFeedback(elementId, message, isSuccess = true) {
+            const feedbackElement = document.getElementById(elementId);
+            feedbackElement.textContent = message;
+            feedbackElement.className = `feedback ${isSuccess ? 'success' : 'error'}`;
+            feedbackElement.style.opacity = '1';
+            
+            // Clear the feedback after 3 seconds
+            setTimeout(() => {
+                feedbackElement.style.opacity = '0';
+            }, 3000);
+        }
+
+        function flashElement(elementId) {
+            const element = document.getElementById(elementId);
+            element.classList.add('flash');
+            setTimeout(() => {
+                element.classList.remove('flash');
+            }, 500);
+        }
+
+        function setGoal() {
+            const name = document.getElementById('goalExerciseName').value;
+            const weight = parseFloat(document.getElementById('goalWeight').value);
+            const sets = parseInt(document.getElementById('goalSets').value);
+            const reps = parseInt(document.getElementById('goalReps').value);
+            
+            if (name && !isNaN(weight) && !isNaN(sets) && !isNaN(reps)) {
+                goals[name] = { weight, sets, reps };
+                updateExerciseSelects();
+                updateExerciseList();
+                clearInputs('goal');
+                saveToLocalStorage();
+                showFeedback('goalFeedback', 'Goal set successfully!');
+                flashElement('exerciseList');
+            } else {
+                showFeedback('goalFeedback', 'Please fill all fields correctly.', false);
+            }
+        }
+
+        function recordSession() {
+            const date = document.getElementById('sessionDate').value;
+            const name = document.getElementById('sessionExercise').value;
+            const weight = parseFloat(document.getElementById('sessionWeight').value);
+            const sets = parseInt(document.getElementById('sessionSets').value);
+            const reps = parseInt(document.getElementById('sessionReps').value);
+            
+            if (date && name && !isNaN(weight) && !isNaN(sets) && !isNaN(reps)) {
+                sessions.push({ date, name, weight, sets, reps });
+                updateSessionLog();
+                saveToLocalStorage();
+                updateSessionDefaults();
+                showFeedback('sessionFeedback', 'Session recorded successfully!');
+                flashElement('sessionLog');
+            } else {
+                showFeedback('sessionFeedback', 'Please fill all fields correctly.', false);
+            }
+        }
+
+        function deleteExercise(name) {
+            if (confirm(`Are you sure you want to delete the exercise "${name}"?`)) {
+                delete goals[name];
+                updateExerciseSelects();
+                updateExerciseList();
+                saveToLocalStorage();
+                showFeedback('goalFeedback', 'Exercise deleted successfully!');
+            }
+        }
+
+        function updateSessionLog() {
+            const sessionLogTable = document.getElementById('sessionLog');
+            if (!sessionLogTable) {
+                console.error('Session log table not found');
+                return;
+            }
+
+            let logBody = sessionLogTable.querySelector('tbody');
+            if (!logBody) {
+                logBody = document.createElement('tbody');
+                sessionLogTable.appendChild(logBody);
+            }
+
+            logBody.innerHTML = '';
+            sessions.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort sessions by date, newest first
+            sessions.forEach(session => {
+                const row = logBody.insertRow();
+                row.innerHTML = `
+                    <td>${session.date}</td>
+                    <td>${session.name}</td>
+                    <td>${session.weight}</td>
+                    <td>${session.sets}</td>
+                    <td>${session.reps}</td>
+                `;
+            });
+        }
+
+        function updateExerciseSelects() {
+            const sessionSelect = document.getElementById('sessionExercise');
+            const compareSelect = document.getElementById('compareExercise');
+            sessionSelect.innerHTML = '';
+            compareSelect.innerHTML = '';
+            Object.keys(goals).forEach(name => {
+                sessionSelect.add(new Option(name, name));
+                compareSelect.add(new Option(name, name));
+            });
+            updateSessionDefaults();
+        }
+
+        function updateSessionDefaults() {
+            const exerciseName = document.getElementById('sessionExercise').value;
+            const goal = goals[exerciseName];
+            if (goal) {
+                document.getElementById('sessionWeight').value = goal.weight;
+                document.getElementById('sessionSets').value = goal.sets;
+                document.getElementById('sessionReps').value = goal.reps;
+            }
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('sessionDate').value = today;
+        }
+
+        function updateChart() {
+            const selectedExercise = document.getElementById('compareExercise').value;
+            const filteredSessions = sessions.filter(s => s.name === selectedExercise);
+            const goal = goals[selectedExercise];
+
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: filteredSessions.map(s => s.date),
+                    datasets: [
+                        {
+                            label: 'Weight (kg)',
+                            data: filteredSessions.map(s => s.weight),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Goal Weight',
+                            data: filteredSessions.map(() => goal.weight),
+                            borderColor: 'rgb(255, 99, 132)',
+                            borderDash: [5, 5],
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearInputs(prefix) {
+            [`${prefix}ExerciseName`, `${prefix}Weight`, `${prefix}Sets`, `${prefix}Reps`].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('exerciseGoals', JSON.stringify(goals));
+            localStorage.setItem('exerciseSessions', JSON.stringify(sessions));
+        }
+
+        function loadFromLocalStorage() {
+            const savedGoals = localStorage.getItem('exerciseGoals');
+            const savedSessions = localStorage.getItem('exerciseSessions');
+            if (savedGoals) goals = JSON.parse(savedGoals);
+            if (savedSessions) sessions = JSON.parse(savedSessions);
+            updateExerciseSelects();
+            updateExerciseList();
+            updateSessionLog();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+            let totalSeconds = minutes * 60 + seconds;
+
+            updateTimerDisplay(totalSeconds);
+
+            timerInterval = setInterval(() => {
+                totalSeconds--;
+                if (totalSeconds < 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('timerAudio').play();
+                } else {
+                    updateTimerDisplay(totalSeconds);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            document.getElementById('timer').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Initialize the app
+        loadFromLocalStorage();
+        updateSessionDefaults();
+        updateExerciseList();
+        updateSessionLog(); // Add this line to ensure the log is populated on initial load
+    </script>
+</body>
+</html>
