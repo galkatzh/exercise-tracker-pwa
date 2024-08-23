@@ -15,6 +15,7 @@
             height: 50vh;
             width: 100%;
         }
+        
         .feedback {
             padding: 10px;
             margin-top: 10px;
@@ -175,6 +176,47 @@
         .exercise-item button.delete {
             background-color: #f44336;
         }
+        .timer-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .timer-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .timer-display {
+            font-size: 3em;
+            font-weight: bold;
+            padding: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            min-width: 200px;
+            text-align: center;
+        }
+
+        .timer-input {
+            width: 60px;
+            text-align: center;
+        }
+
+        .timer-button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+
+        .timer-button:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -241,15 +283,19 @@
                 </div>
             </div>
         </div>
-        <div id="timer" class="tab-content">
+         <div id="timer" class="tab-content">
             <div class="card">
                 <h2>Rest Timer</h2>
-                <div class="input-group">
-                    <input type="number" id="timerMinutes" placeholder="Minutes" min="0" value="1">
-                    <input type="number" id="timerSeconds" placeholder="Seconds" min="0" max="59" value="0">
-                    <button onclick="startTimer()">Start Timer</button>
+                <div class="timer-container">
+                    <div class="timer-display" id="timerDisplay">00:00</div>
+                    <div class="timer-controls">
+                        <input type="number" id="timerMinutes" class="timer-input" placeholder="Min" min="0" value="1">
+                        <span>:</span>
+                        <input type="number" id="timerSeconds" class="timer-input" placeholder="Sec" min="0" max="59" value="0">
+                        <button class="timer-button" onclick="startTimer()">Start</button>
+                        <button class="timer-button" onclick="resetTimer()">Reset</button>
+                    </div>
                 </div>
-                <div id="timer">01:00</div>
             </div>
         </div>
         <div id="history" class="tab-content">
@@ -263,7 +309,6 @@
         </div>
 
     </div>
-
     <audio id="timerAudio">
         <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=bell-ring-01.mp3" type="audio/mpeg">
         Your browser does not support the audio element.
@@ -274,6 +319,7 @@
         let sessions = [];
         let chartInstance = null;
         let timerInterval;
+        let totalSeconds = 0;
 
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -498,22 +544,32 @@
             updateExerciseList();
             updateSessionLog();
         }
-
+        function updateTimerDisplay() {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        function resetTimer() {
+            clearInterval(timerInterval);
+            totalSeconds = 0;
+            updateTimerDisplay();
+        }
         function startTimer() {
             clearInterval(timerInterval);
             const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
             const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
-            let totalSeconds = minutes * 60 + seconds;
+            totalSeconds = minutes * 60 + seconds;
 
-            updateTimerDisplay(totalSeconds);
+            updateTimerDisplay();
 
             timerInterval = setInterval(() => {
-                totalSeconds--;
-                if (totalSeconds < 0) {
+                if (totalSeconds > 0) {
+                    totalSeconds--;
+                    updateTimerDisplay();
+                } else {
                     clearInterval(timerInterval);
                     document.getElementById('timerAudio').play();
-                } else {
-                    updateTimerDisplay(totalSeconds);
                 }
             }, 1000);
         }
