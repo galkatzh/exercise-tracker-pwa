@@ -180,42 +180,45 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 20px;
         }
-
+        
+        .timer-display {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
         .timer-controls {
             display: flex;
-            gap: 10px;
-            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
-
-        .timer-display {
-            font-size: 3em;
-            font-weight: bold;
-            padding: 20px;
-            background-color: #f0f0f0;
-            border-radius: 10px;
-            min-width: 200px;
-            text-align: center;
-        }
-
-        .timer-input {
-            width: 60px;
-            text-align: center;
-        }
-
+        
         .timer-button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
             border: none;
-            border-radius: 5px;
+            border-radius: 4px;
+            background-color: #007bff;
+            color: white;
             cursor: pointer;
-            font-size: 1em;
         }
-
+        
         .timer-button:hover {
-            background-color: #45a049;
+            background-color: #0056b3;
+        }
+        
+        .timer-input {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .timer-input input {
+            width: 3rem;
+            padding: 0.25rem;
+            font-size: 1rem;
+            text-align: center;
         }
     </style>
 </head>
@@ -284,20 +287,23 @@
             </div>
         </div>
          <div id="timer" class="tab-content">
-            <div class="card">
-                <h2>Rest Timer</h2>
-                <div class="timer-container">
-                    <div class="timer-display" id="timerDisplay">00:00</div>
-                    <div class="timer-controls">
-                        <input type="number" id="timerMinutes" class="timer-input" placeholder="Min" min="0" value="1">
-                        <span>:</span>
-                        <input type="number" id="timerSeconds" class="timer-input" placeholder="Sec" min="0" max="59" value="0">
-                        <button class="timer-button" onclick="startTimer()">Start</button>
-                        <button class="timer-button" onclick="resetTimer()">Reset</button>
-                    </div>
+        <div class="card">
+            <h2>Rest Timer</h2>
+            <div class="timer-container">
+                <div class="timer-input">
+                    <input type="number" id="minutesInput" min="0" max="59" value="0">
+                    <span>:</span>
+                    <input type="number" id="secondsInput" min="0" max="59" value="0">
+                </div>
+                <div id="timerDisplay" class="timer-display">00:00</div>
+                <div class="timer-controls">
+                    <button id="startTimer" class="timer-button">Start</button>
+                    <button id="pauseTimer" class="timer-button">Pause</button>
+                    <button id="resetTimer" class="timer-button">Reset</button>
                 </div>
             </div>
         </div>
+    </div>
         <div id="history" class="tab-content">
             <div class="card">
                 <h2>Performance Comparison</h2>
@@ -320,7 +326,64 @@
         let chartInstance = null;
         let timerInterval;
         let totalSeconds = 0;
-
+        let isPaused = false;
+        const timerSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        
+        function startTimer() {
+            if (!timerInterval) {
+                if (!isPaused) {
+                    const minutes = parseInt(document.getElementById('minutesInput').value) || 0;
+                    const seconds = parseInt(document.getElementById('secondsInput').value) || 0;
+                    totalSeconds = minutes * 60 + seconds;
+                }
+                if (totalSeconds > 0) {
+                    timerInterval = setInterval(updateTimer, 1000);
+                    isPaused = false;
+                    updateTimerDisplay(); // Update display immediately
+                }
+            }
+        }
+        
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                isPaused = true;
+            }
+        }
+        
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            isPaused = false;
+            totalSeconds = 0;
+            updateTimerDisplay();
+            document.getElementById('minutesInput').value = '0';
+            document.getElementById('secondsInput').value = '0';
+        }
+        
+        function updateTimer() {
+            if (totalSeconds > 0) {
+                totalSeconds--;
+                updateTimerDisplay();
+            } else {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timerSound.play();
+            }
+        }
+        
+        function updateTimerDisplay() {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            document.getElementById('timerDisplay').textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        document.getElementById('startTimer').addEventListener('click', startTimer);
+        document.getElementById('pauseTimer').addEventListener('click', pauseTimer);
+        document.getElementById('resetTimer').addEventListener('click', resetTimer);
+        
         function showTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
@@ -544,42 +607,7 @@
             updateExerciseList();
             updateSessionLog();
         }
-        function updateTimerDisplay() {
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            document.getElementById('timerDisplay').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
-        function resetTimer() {
-            clearInterval(timerInterval);
-            totalSeconds = 0;
-            updateTimerDisplay();
-        }
-        function startTimer() {
-            clearInterval(timerInterval);
-            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
-            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
-            totalSeconds = minutes * 60 + seconds;
-
-            updateTimerDisplay();
-
-            timerInterval = setInterval(() => {
-                if (totalSeconds > 0) {
-                    totalSeconds--;
-                    updateTimerDisplay();
-                } else {
-                    clearInterval(timerInterval);
-                    document.getElementById('timerAudio').play();
-                }
-            }, 1000);
-        }
-
-        function updateTimerDisplay(totalSeconds) {
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            document.getElementById('timer').textContent = 
-                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        }
+        
         // Initialize the app
         loadFromLocalStorage();
         updateSessionDefaults();
